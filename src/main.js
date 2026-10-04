@@ -13,7 +13,7 @@ const ground=add(new THREE.PlaneGeometry(100,100),groundM);ground.rotation.x=-Ma
 const rim=add(new THREE.CylinderGeometry(9,6.5,3.5,48,1,true),dirt);rim.position.y=-2.5;
 const hole=add(new THREE.CylinderGeometry(6.5,5.8,.9,48),dark);hole.position.y=-4.25;
 for(let i=0;i<70;i++){const r=add(new THREE.DodecahedronGeometry(.1+Math.random()*.24,0),Math.random()>.45?dirt:dark),a=Math.random()*6.28,d=9+Math.random()*19;r.position.set(Math.cos(a)*d,-2.58,Math.sin(a)*d);r.rotation.set(Math.random()*3,Math.random()*3,0)}
-const site=new THREE.Group();scene.add(site),daves=[];
+const site=new THREE.Group();scene.add(site);const daves=[];
 function dave(i){const g=new THREE.Group(),body=add(new THREE.CapsuleGeometry(.4,.8,4,8),shirt,g);body.position.y=1.03;const pants=add(new THREE.BoxGeometry(.82,.45,.55),denim,g);pants.position.y=.55;
 for(const s of [-1,1]){const leg=add(new THREE.CylinderGeometry(.14,.15,.5,8),denim,g);leg.position.set(s*.21,.18,0);const b=add(new THREE.BoxGeometry(.32,.17,.52),boot,g);b.position.set(s*.21,-.12,.08)}
 const head=add(new THREE.SphereGeometry(.54,16,12),skin,g);head.scale.set(1.05,.92,1);head.position.y=1.9;
