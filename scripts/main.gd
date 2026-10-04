@@ -19,15 +19,20 @@ var dave_button: Button
 var sell_button: Button
 var field: Node2D
 var dave_sprites: Array[Node2D] = []
+var initialized := false
 
 func _ready() -> void:
     rng.randomize()
     _build_ui()
     _load_game()
     _rebuild_daves()
+    _update_ui()
+    initialized = true
     last_save_ms = Time.get_ticks_msec()
 
 func _process(delta: float) -> void:
+    if not initialized:
+        return
     var dug := dig_rate() * delta
     dirt += dug
     lifetime_dirt += dug
@@ -124,8 +129,8 @@ func _rebuild_daves() -> void:
     for n in dave_sprites:
         n.queue_free()
     dave_sprites.clear()
-    var shown := min(daves, 80)
-    for i in shown:
+    var shown: int = mini(daves, 80)
+    for i in range(shown):
         var dude := Node2D.new()
         dude.position = Vector2(45 + (i % 10) * 67 + rng.randf_range(-8,8), 50 + (i / 10) * 56 + rng.randf_range(-5,5))
         field.add_child(dude)
@@ -158,7 +163,7 @@ func _rebuild_daves() -> void:
 
 func _circle_poly(center: Vector2, radius: float, points: int) -> PackedVector2Array:
     var arr := PackedVector2Array()
-    for i in points:
+    for i in range(points):
         var a := TAU * float(i) / float(points)
         arr.append(center + Vector2(cos(a), sin(a)) * radius)
     return arr
@@ -216,7 +221,7 @@ func _load_game() -> void:
     shovel_level = int(data.get("shovel_level",1))
     depth = float(data.get("depth",0.0))
     lifetime_dirt = float(data.get("lifetime_dirt",0.0))
-    var away := clamp(Time.get_unix_time_from_system() - float(data.get("saved_unix",Time.get_unix_time_from_system())), 0.0, 14400.0)
+    var away: float = clampf(Time.get_unix_time_from_system() - float(data.get("saved_unix",Time.get_unix_time_from_system())), 0.0, 14400.0)
     var offline := dig_rate() * away * 0.35
     dirt += offline
     lifetime_dirt += offline
