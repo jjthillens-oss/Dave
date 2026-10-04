@@ -1,109 +1,22 @@
 import * as THREE from 'three';
-
-const canvas = document.querySelector('#world');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-renderer.shadowMap.enabled = true;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8fb7c6);
-scene.fog = new THREE.Fog(0x8fb7c6, 28, 65);
-
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-camera.position.set(15, 12, 18);
-camera.lookAt(0, -1, 0);
-
-scene.add(new THREE.HemisphereLight(0xfff0cf, 0x4b3527, 2.5));
-const sun = new THREE.DirectionalLight(0xffd49b, 3.5);
-sun.position.set(-10, 18, 8);
-sun.castShadow = true;
-scene.add(sun);
-
-const material = color => new THREE.MeshStandardMaterial({ color, roughness: 0.82 });
-const dirt = material(0x71482f), dark = material(0x2f201b), grass = material(0x8fa45d);
-const skin = material(0xefb17f), shirt = material(0xe6dec7), denim = material(0x4c7180);
-const yellow = material(0xe5a22b), white = material(0xffffff), black = material(0x171717), wood = material(0x694027), steel = material(0x899499);
-
-function mesh(geometry, mat, parent = scene) {
-  const m = new THREE.Mesh(geometry, mat);
-  m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
-}
-
-const ground = mesh(new THREE.PlaneGeometry(80,80), grass);
-ground.rotation.x = -Math.PI/2; ground.position.y = -2.5;
-const pitWall = mesh(new THREE.CylinderGeometry(8.5,6.2,3.2,40,1,true), dirt);
-pitWall.position.y = -2.25;
-const pitBottom = mesh(new THREE.CylinderGeometry(6.25,5.8,0.6,40), dark);
-pitBottom.position.y = -4.05;
-
-for(let i=0;i<55;i++){
-  const r=mesh(new THREE.DodecahedronGeometry(.12+Math.random()*.22,0),dirt);
-  const a=Math.random()*Math.PI*2,d=9+Math.random()*14;
-  r.position.set(Math.cos(a)*d,-2.38,Math.sin(a)*d);
-}
-
-const crew = new THREE.Group(); scene.add(crew);
-const daveModels = [];
-
-function makeDave(i){
-  const g=new THREE.Group();
-  const body=mesh(new THREE.BoxGeometry(.75,1,.55),shirt,g); body.position.y=.9;
-  const pants=mesh(new THREE.BoxGeometry(.78,.42,.57),denim,g); pants.position.y=.32;
-  const head=mesh(new THREE.SphereGeometry(.5,16,12),skin,g); head.position.y=1.7;
-  const hatBrim=mesh(new THREE.CylinderGeometry(.6,.6,.08,16),yellow,g); hatBrim.position.y=2.12;
-  const hat=mesh(new THREE.SphereGeometry(.45,16,8,0,Math.PI*2,0,Math.PI/2),yellow,g); hat.position.y=2.14;
-  for(const side of [-1,1]){
-    const eye=mesh(new THREE.SphereGeometry(.15,10,8),white,g); eye.position.set(side*.21,1.8,.43);
-    const pupil=mesh(new THREE.SphereGeometry(.065,8,6),black,g); pupil.position.set(side*.23,1.8,.55);
-    const leg=mesh(new THREE.BoxGeometry(.24,.55,.28),denim,g); leg.position.set(side*.2,-.15,0);
-  }
-  const arm=new THREE.Group(); arm.position.set(.42,1.05,0); g.add(arm);
-  const forearm=mesh(new THREE.BoxGeometry(.18,.8,.18),skin,arm); forearm.position.y=-.3; forearm.rotation.z=-.45;
-  const handle=mesh(new THREE.CylinderGeometry(.035,.035,1.5,8),wood,arm); handle.position.set(.55,-.75,0); handle.rotation.z=-.5;
-  const blade=mesh(new THREE.BoxGeometry(.5,.38,.08),steel,arm); blade.position.set(.9,-1.32,0); blade.rotation.z=-.5;
-  const a=i*.9,r=2+(i%4)*1.1; g.position.set(Math.cos(a)*r,-3.65,Math.sin(a)*r); g.rotation.y=-a+Math.PI/2;
-  g.userData={arm,phase:Math.random()*6.28}; crew.add(g); daveModels.push(g);
-}
-
-let state={dirt:0,cash:0,daves:1,shovel:1,depth:0,last:Date.now()};
-try { const saved=JSON.parse(localStorage.getItem('dave3d')||'null'); if(saved) state={...state,...saved}; } catch(e) {}
-const rate=()=>state.daves*(1+(state.shovel-1)*.55);
-const daveCost=()=>Math.floor(12*Math.pow(1.24,state.daves-1));
-const shovelCost=()=>Math.floor(20*Math.pow(1.7,state.shovel-1));
-state.dirt += rate()*Math.min((Date.now()-state.last)/1000,14400)*.35;
-
-function syncCrew(){
-  while(daveModels.length<Math.min(state.daves,60)) makeDave(daveModels.length);
-}
-syncCrew();
-
-const $=id=>document.getElementById(id);
-const fmt=n=>n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':Math.floor(n).toLocaleString();
-function updateUI(){
-  $('cash').textContent='$'+fmt(state.cash); $('dirt').textContent=fmt(state.dirt);
-  $('crew').textContent=state.daves+' DAVE'+(state.daves===1?'':'S'); $('depth').textContent=state.depth.toFixed(1)+'m';
-  $('rate').textContent=fmt(rate())+' dirt / sec'; $('sellValue').textContent='+$'+fmt(Math.floor(state.dirt));
-  $('hireCost').textContent='$'+fmt(daveCost()); $('shovelCost').textContent='$'+fmt(shovelCost());
-  $('hire').disabled=state.cash<daveCost(); $('shovel').disabled=state.cash<shovelCost();
-}
-$('sell').addEventListener('click',()=>{const n=Math.floor(state.dirt);state.cash+=n;state.dirt-=n;updateUI()});
-$('hire').addEventListener('click',()=>{const c=daveCost();if(state.cash>=c){state.cash-=c;state.daves++;syncCrew();updateUI()}});
-$('shovel').addEventListener('click',()=>{const c=shovelCost();if(state.cash>=c){state.cash-=c;state.shovel++;updateUI()}});
-$('reset').addEventListener('click',()=>{localStorage.removeItem('dave3d');location.reload()});
-
-function resize(){const w=canvas.clientWidth||innerWidth,h=canvas.clientHeight||innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
-window.addEventListener('resize',resize); resize();
-
-let last=performance.now(), saveTimer=0;
-function animate(now){
-  requestAnimationFrame(animate);
-  const dt=Math.min((now-last)/1000,.05); last=now;
-  state.dirt+=rate()*dt; state.depth+=rate()*dt*.0015;
-  daveModels.forEach(d=>{const t=now*.004+d.userData.phase;d.userData.arm.rotation.x=Math.sin(t)*.7;d.rotation.z=Math.sin(t*.5)*.02;});
-  camera.position.x=15+Math.sin(now*.00008)*2;
-  camera.lookAt(0,-1,0);
-  renderer.render(scene,camera); updateUI();
-  saveTimer+=dt;if(saveTimer>3){state.last=Date.now();localStorage.setItem('dave3d',JSON.stringify(state));saveTimer=0;}
-}
-requestAnimationFrame(animate);
+const canvas=document.querySelector('#world'),renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x101820);scene.fog=new THREE.Fog(0x101820,18,42);
+const camera=new THREE.PerspectiveCamera(55,1,.1,80);scene.add(new THREE.HemisphereLight(0x9bc5df,0x24180f,2));const lamp=new THREE.PointLight(0xffbd65,35,18);scene.add(lamp);
+const M=c=>new THREE.MeshStandardMaterial({color:c,roughness:.8}),rockM=M(0x59463a),dirtM=M(0x76543d),oreM=M(0x43c6d9),skin=M(0xefb17f),yellow=M(0xe7a32b),shirt=M(0xe5ddc6),denim=M(0x476d7d),black=M(0x111111),white=M(0xffffff);
+function mesh(g,m,p=scene){const x=new THREE.Mesh(g,m);x.castShadow=x.receiveShadow=true;p.add(x);return x}
+const floor=mesh(new THREE.PlaneGeometry(50,200),dirtM);floor.rotation.x=-Math.PI/2;floor.position.set(0,-1,-75);
+for(let z=3;z>-145;z-=4)for(const x of [-8,-6,6,8]){const b=mesh(new THREE.BoxGeometry(2.1,4,3.8),rockM);b.position.set(x,1,z+(Math.random()-.5));b.rotation.y=(Math.random()-.5)*.25}
+const rocks=[];for(let z=-8;z>-145;z-=5){for(let i=0;i<3;i++){const ore=Math.random()<.24,r=mesh(new THREE.DodecahedronGeometry(.7+Math.random()*.45,1),ore?oreM:rockM);r.position.set((Math.random()-.5)*9,-.25,z+(Math.random()-.5)*2);r.userData={ore,hp:ore?3:2};rocks.push(r)}}
+const dave=new THREE.Group();scene.add(dave);const body=mesh(new THREE.BoxGeometry(.9,1.1,.6),shirt,dave);body.position.y=.9;const head=mesh(new THREE.SphereGeometry(.55,16,12),skin,dave);head.position.y=1.8;const brim=mesh(new THREE.CylinderGeometry(.65,.65,.08,16),yellow,dave);brim.position.y=2.22;const hat=mesh(new THREE.SphereGeometry(.48,16,8,0,6.28,0,1.57),yellow,dave);hat.position.y=2.24;
+for(const s of [-1,1]){const e=mesh(new THREE.SphereGeometry(.16,10,8),white,dave);e.position.set(s*.23,1.9,-.47);const p=mesh(new THREE.SphereGeometry(.07,8,6),black,dave);p.position.set(s*.23,1.9,-.59)}
+const pick=new THREE.Group();dave.add(pick);pick.position.set(.55,1,0);const handle=mesh(new THREE.CylinderGeometry(.04,.04,1.7,8),M(0x684027),pick);handle.rotation.z=-.7;const blade=mesh(new THREE.BoxGeometry(.65,.15,.12),M(0x9ba3a5),pick);blade.position.set(.58,-.55,0);blade.rotation.z=-.7;
+let state={cash:0,ore:0,cap:12,power:1,depth:0};const keys={};addEventListener('keydown',e=>keys[e.code]=true);addEventListener('keyup',e=>keys[e.code]=false);
+let msgT;function msg(t){const el=document.querySelector('#message');el.textContent=t;el.classList.add('show');clearTimeout(msgT);msgT=setTimeout(()=>el.classList.remove('show'),700)}
+const pc=()=>15*Math.pow(2,state.power-1),bc=()=>25*Math.pow(2,(state.cap-12)/8);
+function ui(){depth.textContent=Math.floor(state.depth)+'m';ore.textContent=state.ore+' / '+state.cap;cash.textContent='$'+Math.floor(state.cash);sellv.textContent='+$'+state.ore*5;powerc.textContent='$'+pc();bagc.textContent='$'+bc();power.disabled=state.cash<pc();bag.disabled=state.cash<bc();shop.classList.toggle('show',dave.position.z>-4)}
+sell.onclick=()=>{state.cash+=state.ore*5;state.ore=0;msg('SOLD. DAVE UNDERSTANDS MONEY.')};power.onclick=()=>{if(state.cash>=pc()){state.cash-=pc();state.power++;msg('PICKAXE STRONGER. DAVE SAME.')}};bag.onclick=()=>{if(state.cash>=bc()){state.cash-=bc();state.cap+=8;msg('MORE POCKET.')}};
+function hitRock(){if(state.ore>=state.cap){msg('BAG FULL. GO UP.');return}let best=null,dist=2.3;for(const r of rocks){if(!r.parent)continue;const d=r.position.distanceTo(dave.position);if(d<dist){best=r;dist=d}}if(best){best.userData.hp-=state.power;best.scale.multiplyScalar(.88);if(best.userData.hp<=0){if(best.userData.ore){state.ore++;msg('+1 BLUE ROCK')}scene.remove(best)}}}
+let last=performance.now(),swing=0;
+function loop(now){requestAnimationFrame(loop);const dt=Math.min((now-last)/1000,.04);last=now;const sp=5*dt;if(keys.KeyA)dave.position.x-=sp;if(keys.KeyD)dave.position.x+=sp;if(keys.KeyW)dave.position.z-=sp;if(keys.KeyS)dave.position.z+=sp;dave.position.x=Math.max(-5,Math.min(5,dave.position.x));dave.position.z=Math.max(-142,Math.min(3,dave.position.z));state.depth=Math.max(state.depth,-dave.position.z);if(keys.Space){swing+=dt*12;pick.rotation.x=Math.sin(swing)*1.1;if(Math.sin(swing)>.94&&pick.userData.ready!==false){pick.userData.ready=false;hitRock()}if(Math.sin(swing)<0)pick.userData.ready=true}else pick.rotation.x*=.8;
+camera.position.lerp(new THREE.Vector3(dave.position.x*0.35+7,7,dave.position.z+10),.08);camera.lookAt(dave.position.x,0,dave.position.z-3);lamp.position.set(dave.position.x,5,dave.position.z+1);renderer.render(scene,camera);ui()}
+function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();requestAnimationFrame(loop);
